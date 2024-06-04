@@ -8,6 +8,9 @@ function ecg_analysis(file_path, intervals)
     % Initialize results
     results = [];
 
+    % Sampling frequency
+    fs = 1000; % in Hz
+    
     % Analyze each interval
     for i = 1:size(intervals, 1)
         start_time = intervals(i, 1) + 1; % Convert to 1-based indexing
@@ -16,12 +19,12 @@ function ecg_analysis(file_path, intervals)
         if start_time > 0 && end_time <= length(ecg_signal)
             segment = ecg_signal(start_time:end_time);
 
-            % Detect R peaks using a simple threshold method
-            r_peaks = find_r_peaks(segment, 0.5);
+            % Detect R peaks using the improved method
+            r_peaks = detect_r_peaks(segment, fs);
 
             if length(r_peaks) > 1
                 % Calculate HRV measures
-                nn_intervals = diff(r_peaks);
+                nn_intervals = diff(r_peaks) * (1000 / fs); % Convert to ms
                 sdnn = std(nn_intervals);
                 sdsd = std(diff(nn_intervals));
 
@@ -47,19 +50,38 @@ function ecg_analysis(file_path, intervals)
     summarize_results(results);
 end
 
-function r_peaks = find_r_peaks(segment, threshold)
-    refractory_period = 200; % Minimum time between peaks (in samples)
-    peaks = find(segment > threshold);
-    if isempty(peaks)
-        r_peaks = [];
-    else
-        r_peaks = peaks(1);
-        for i = 2:length(peaks)
-            if peaks(i) - r_peaks(end) > refractory_period
-                r_peaks = [r_peaks; peaks(i)];
-            end
+function r_peaks = detect_r_peaks(signal, fs)
+    % Detect R-peaks in the ECG signal using a simple threshold method
+    %
+    % Parameters:
+    %   signal (vector): ECG signal
+    %   fs (scalar): Sampling frequency in Hz
+    %
+    % Returns:
+    %   r_peaks (vector): Indices of detected R-peaks
+
+    threshold = max(signal) * 0.6;  % Define threshold
+    r_peaks = find(signal > threshold);
+
+    % Remove false peaks
+    min_distance = 0.6 * fs;  % Minimum distance between R-peaks (0.6 seconds)
+    valid_peaks = [r_peaks(1)];  % Start with the first peak
+    for i = 2:length(r_peaks)
+        if r_peaks(i) - valid_peaks(end) > min_distance
+            valid_peaks = [valid_peaks; r_peaks(i)];
         end
     end
+    r_peaks = valid_peaks;
+
+    % Additional filtering based on physiological HR limits
+    min_hr = 30;  % Minimum plausible HR (30 bpm)
+    max_hr = 200;  % Maximum plausible HR (200 bpm)
+    min_rr_interval = fs * 60 / max_hr;  % Minimum RR interval in samples
+    max_rr_interval = fs * 60 / min_hr;  % Maximum RR interval in samples
+
+    % Keep peaks with realistic RR intervals
+    valid_rr_intervals = find((diff(r_peaks) > min_rr_interval) & (diff(r_peaks) < max_rr_interval));
+    r_peaks = r_peaks([1; valid_rr_intervals + 1]);
 end
 
 function summarize_results(results)
@@ -95,5 +117,6 @@ end
 file_path = 'ecg1.mat';
 intervals = [0 10000; 10000 20000; 20000 30000; 30000 40000; 40000 50000; 50000 60000; 60000 70000; 70000 80000];
 ecg_analysis(file_path, intervals);
+
 
 
