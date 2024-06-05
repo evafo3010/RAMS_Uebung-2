@@ -9,17 +9,17 @@ function ecg_analysis(file_path, intervals)
     results = [];
 
     % Sampling frequency
-    fs = 1000; % in Hz
+    fs = 200; % in Hz 
     
     % Analyze each interval
     for i = 1:size(intervals, 1)
-        start_time = intervals(i, 1) + 1; % Convert to 1-based indexing
+        start_time = intervals(i, 1) + 1;
         end_time = intervals(i, 2);
 
         if start_time > 0 && end_time <= length(ecg_signal)
             segment = ecg_signal(start_time:end_time);
 
-            % Detect R peaks using the improved method
+            % Detect R peaks
             r_peaks = detect_r_peaks(segment, fs);
 
             if length(r_peaks) > 1
@@ -51,14 +51,6 @@ function ecg_analysis(file_path, intervals)
 end
 
 function r_peaks = detect_r_peaks(signal, fs)
-    % Detect R-peaks in the ECG signal using a simple threshold method
-    %
-    % Parameters:
-    %   signal (vector): ECG signal
-    %   fs (scalar): Sampling frequency in Hz
-    %
-    % Returns:
-    %   r_peaks (vector): Indices of detected R-peaks
 
     threshold = max(signal) * 0.6;  % Define threshold
     r_peaks = find(signal > threshold);
@@ -73,7 +65,7 @@ function r_peaks = detect_r_peaks(signal, fs)
     end
     r_peaks = valid_peaks;
 
-    % Additional filtering based on physiological HR limits
+    % Filtering artefacts
     min_hr = 30;  % Minimum plausible HR (30 bpm)
     max_hr = 200;  % Maximum plausible HR (200 bpm)
     min_rr_interval = fs * 60 / max_hr;  % Minimum RR interval in samples
@@ -117,6 +109,7 @@ end
 file_path = 'ecg1.mat';
 intervals = [0 10000; 10000 20000; 20000 30000; 30000 40000; 40000 50000; 50000 60000; 60000 70000; 70000 80000];
 ecg_analysis(file_path, intervals);
+
 
 
 
